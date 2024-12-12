@@ -1,0 +1,52 @@
+﻿@using QRCoder
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<h3>Générateur de Code QR</h3>
+
+<div>
+    <label>Code d'activation :</label>
+    <input type="text" @bind="ActivationCode" placeholder="Entrez le code d'activation" />
+</div>
+<div>
+    <label>URL de l'application :</label>
+    <input type="text" @bind="AppUrl" placeholder="Entrez l'URL de l'application" />
+</div>
+<div>
+    <button @onclick="GenerateQRCode">Générer le Code QR</button>
+</div>
+
+@if (!string.IsNullOrEmpty(QRCodeBase64))
+{
+    <div>
+        <h4>Votre Code QR :</h4>
+        <img src="data:image/png;base64,@QRCodeBase64" alt="Code QR" width="250" height="250"/>
+    </div>
+}
+
+@code {
+    private string ActivationCode { get; set; } = string.Empty;
+    private string AppUrl { get; set; } = string.Empty;
+    private string QRCodeBase64 { get; set; }
+
+    private void GenerateQRCode()
+    {
+        if (string.IsNullOrWhiteSpace(ActivationCode) || string.IsNullOrWhiteSpace(AppUrl))
+        {
+            QRCodeBase64 = string.Empty;
+            return;
+        }
+
+        // Construire les données à encoder
+        var qrContent = $"Code d'activation: {ActivationCode}\nTéléchargez l'application : {AppUrl}";
+
+        // Générer le QR Code
+        using var qrGenerator = new QRCodeGenerator();
+        var qrCodeData = qrGenerator.CreateQrCode(qrContent, QRCodeGenerator.ECCLevel.Q);
+        using var qrCode = new PngByteQRCode(qrCodeData);
+        var qrCodeImage = qrCode.GetGraphic(20);
+
+        // Convertir en Base64 pour affichage
+        QRCodeBase64 = Convert.ToBase64String(qrCodeImage);
+    }
+}

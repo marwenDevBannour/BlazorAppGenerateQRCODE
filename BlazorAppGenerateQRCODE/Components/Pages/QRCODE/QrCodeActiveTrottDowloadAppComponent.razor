@@ -1,0 +1,72 @@
+﻿@page "/activeTrottDownloadApp"
+@using BlazorAppGenerateQRCODE.Services
+@inject QRCodeService QRCodeService
+@rendermode InteractiveServer
+
+<h3>Générateur de QR Code</h3>
+
+<div>
+    <label>Code d'activation :</label>
+    <input type="text" @bind="ActivationCode" placeholder="Entrez le code d'activation" />
+</div>
+<div>
+    <label>URL de l'application :</label>
+    <input type="text" @bind="AppUrl" placeholder="Entrez l'URL de l'application" />
+</div>
+<div>
+    <label>Format :</label>
+    <select @bind="Format">
+        <option value="png">PNG</option>
+        <option value="jpg">JPEG</option>
+        <option value="pdf">PDF</option>
+    </select>
+</div>
+<div>
+    <button @onclick="GenerateQRCode">Générer</button>
+</div>
+
+@if (!string.IsNullOrEmpty(QRCodeBase64) && Format != "pdf")
+{
+    <h4>Code QR généré :</h4>
+    <img src="data:image/@Format;base64,@QRCodeBase64" alt="Code QR"  width="300" height="300"/>
+}
+
+@if (QRCodeFile is not null)
+{
+    <div>
+        <a href="@QRCodeFile" download="QRCode.@Format">Télécharger le QR Code</a>
+    </div>
+}
+
+@code {
+    private string ActivationCode { get; set; } = string.Empty;
+    private string AppUrl { get; set; } = string.Empty;
+    private string Format { get; set; } = "png";
+    private string QRCodeBase64 { get; set; }
+    private string QRCodeFile { get; set; }
+
+    private async Task GenerateQRCode()
+    {
+        if (string.IsNullOrWhiteSpace(ActivationCode) || string.IsNullOrWhiteSpace(AppUrl))
+        {
+            QRCodeBase64 = string.Empty;
+            QRCodeFile = null;
+            return;
+        }
+
+        var qrCodeBytes = QRCodeService.GenerateQRCode(ActivationCode, AppUrl, Format);
+
+        if (Format == "pdf")
+        {
+            // Sauvegarder le PDF sur le disque pour téléchargement
+            var filePath = Path.Combine(Path.GetTempPath(), $"QRCode.{Format}");
+            await File.WriteAllBytesAsync(filePath, qrCodeBytes);
+            QRCodeFile = filePath;
+        }
+        else
+        {
+            QRCodeBase64 = Convert.ToBase64String(qrCodeBytes);
+            QRCodeFile = null;
+        }
+    }
+}

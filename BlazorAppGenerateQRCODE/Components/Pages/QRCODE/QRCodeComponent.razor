@@ -1,0 +1,72 @@
+﻿@page "/QrCode"
+
+@using BlazorAppGenerateQRCODE.Services
+@inject QRCodeService QRCodeService
+@rendermode InteractiveServer
+@inject IJSRuntime jsRuntime
+
+<h3>Générer et imprimer un QR Code</h3>
+
+<input @bind="Data1" placeholder="Entrez la première donnée" />
+<input @bind="Data2" placeholder="Entrez la seconde donnée" />
+
+<select @bind="Format" class="form-select">
+    <option value="png">PNG</option>
+    <option value="jpg">JPG</option>
+    <option value="pdf">PDF</option>
+</select>
+
+<button @onclick="GenerateQRCode" >Générer</button>
+
+@if (QRCodeImage != null)
+{
+    <div>
+        <button @onclick="DownloadQRCode">Télécharger QR Code</button>
+        <button @onclick="PrintQRCode">Imprimer QR Code</button>
+    </div>
+
+    <div id="qrCodeContainer" >
+        @if (Format == "pdf")
+        {
+            <iframe src="data:application/pdf;base64,@QRCodeImage" width="100%" height="600px"></iframe>
+        }
+        else
+        {
+            <img src="data:image/@Format;base64,@QRCodeImage" alt="QR Code" width="250" height="250" class="img-thumbnail" />
+        }
+    </div>
+}
+
+@code {
+    private string Data1 { get; set; }
+    private string Data2 { get; set; }
+    private string QRCodeImage { get; set; }
+    private string Format { get; set; } = "png"; // Default to PNG
+
+    private async Task GenerateQRCode()
+    {
+       // if (!string.IsNullOrEmpty(Data1) && !string.IsNullOrEmpty(Data2))
+        if (!string.IsNullOrEmpty(Data1))
+        {
+            var qrCodeBytes = QRCodeService.GenerateQRCode(Data1, Data2, Format);
+            QRCodeImage = Convert.ToBase64String(qrCodeBytes);
+        }
+    }
+
+    private void DownloadQRCode()
+    {
+        // Create the download link
+        var fileName = $"QRCode.{Format}";
+        var downloadLink = $"data:image/{Format};base64,{QRCodeImage}";
+
+        // Trigger the download using a link
+         jsRuntime = (IJSRuntime)Activator.CreateInstance(typeof(IJSRuntime));
+        jsRuntime.InvokeVoidAsync("downloadFile", downloadLink, fileName);
+    }
+
+    private async Task PrintQRCode()
+    {
+         jsRuntime = (IJSRuntime)Activator.CreateInstance(typeof(IJSRuntime));
+        await jsRuntime.InvokeVoidAsync("printQRCode", "#qrCodeContainer");
+    }
+}

@@ -1,0 +1,48 @@
+﻿@page "/multiQrCode"
+@using QRCoder
+@using System.Drawing
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<h3>Générateur de Code QR Multi-URL</h3>
+
+<div>
+    <textarea @bind="UrlsInput" placeholder="Entrez vos URLs, une par ligne..." rows="5"></textarea>
+</div>
+<div>
+    <button @onclick="GenerateQRCode">Générer le Code QR</button>
+</div>
+
+@if (!string.IsNullOrEmpty(QRCodeBase64))
+{
+    <div>
+        <img src="data:image/png;base64,@QRCodeBase64" alt="Code QR Multi-URL" width="250" height="250" />
+    </div>
+}
+
+@code {
+    private string UrlsInput { get; set; } = string.Empty;
+    private string QRCodeBase64 { get; set; }
+
+    private void GenerateQRCode()
+    {
+        if (string.IsNullOrWhiteSpace(UrlsInput))
+        {
+            QRCodeBase64 = string.Empty;
+            return;
+        }
+
+        // Combine URLs in JSON format
+        var urls = UrlsInput.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        var jsonData = System.Text.Json.JsonSerializer.Serialize(urls);
+
+        // Generate QR Code
+        using var qrGenerator = new QRCodeGenerator();
+        var qrCodeData = qrGenerator.CreateQrCode(jsonData, QRCodeGenerator.ECCLevel.Q);
+        using var qrCode = new PngByteQRCode(qrCodeData);
+        var qrCodeImage = qrCode.GetGraphic(20);
+
+        // Convert to Base64 string for rendering
+        QRCodeBase64 = Convert.ToBase64String(qrCodeImage);
+    }
+}

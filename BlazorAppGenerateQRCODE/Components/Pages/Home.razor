@@ -1,0 +1,150 @@
+﻿@page "/"
+@rendermode InteractiveServer
+
+@inject QRCodeService _QRCodeService
+@using BlazorAppGenerateQRCODE.Services
+@using Microsoft.AspNetCore.Components.Forms
+
+<div>
+    <label>Code d'activation :</label>
+    <input class="form-control" type="text" @bind="ActivationCode" placeholder="Entrez le code d'activation" />
+</div>
+<div>
+    <label>URL de l'application :</label>
+    <input class="form-control"  type="text" @bind="AppUrl" placeholder="Entrez l'URL de l'application" />
+</div>
+<div>
+    <label>Format :</label>
+    <select @bind="Format">
+        <option value="png">PNG</option>
+        <option value="jpg">JPEG</option>
+        <option value="pdf">PDF</option>
+    </select>
+</div>
+<div>
+    <button class="btn btn-primary" @onclick="GenerateQRCode">Générer</button>
+</div>
+
+@if (!string.IsNullOrEmpty(QRCodeBase64) && Format != "pdf")
+{
+    <h4>Code QR généré :</h4>
+    @* <img src="data:image/@Format;base64,@QRCodeBase64" @onmouseover="DecodeQRCodeOnHover" alt="Code QR" width="300" height="300" /> *@
+    <img src="data:image/@Format;base64,@QRCodeBase64" alt="Code QR" width="300" height="300" />
+}
+@if (QRCodeFile is not null)
+{
+    <div>
+        <a class="btn btn-danger" href="@QRCodeFile" download="@DownloadFileName">Télécharger le QR Code</a>
+    </div>
+}
+
+<hr />
+
+<h3>QR Code Decoder</h3>
+
+<InputFile class="form-control" OnChange="DecodeQRCode" />
+@if (!string.IsNullOrWhiteSpace(DecodedText))
+{
+    <p><strong>Decoded Text:</strong> @DecodedText</p>
+}
+
+@code {
+
+    private string? DecodedText { get; set; }
+    private string ActivationCode { get; set; } = string.Empty;
+    private string AppUrl { get; set; } = string.Empty;
+    private string Format { get; set; } = "png";
+    private string QRCodeBase64 { get; set; }
+    private string QRCodeFile { get; set; }
+    private string DownloadFileName;
+
+    private async Task GenerateQRCode()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(ActivationCode) || string.IsNullOrWhiteSpace(AppUrl))
+            {
+                QRCodeBase64 = string.Empty;
+                QRCodeFile = null;
+                return;
+            }
+
+            var qrCodeBytes = _QRCodeService.GenerateQRCode(ActivationCode, AppUrl, Format);
+
+            if (Format == "pdf")
+            {
+                // Sauvegarder le PDF sur le disque pour téléchargement
+                var filePath = Path.Combine(Path.GetTempPath(), $"QRCode.{Format}");
+                await File.WriteAllBytesAsync(filePath, qrCodeBytes);
+                QRCodeFile = filePath;
+            }
+            else
+            {
+                QRCodeBase64 = Convert.ToBase64String(qrCodeBytes);
+                DownloadFileName = $"QRCode_{ActivationCode}.{Format}";
+                QRCodeFile = $"data:image/{Format};base64,{Convert.ToBase64String(qrCodeBytes)}"; // Lien de téléchargement
+            }
+        }
+        catch (Exception ex)
+        {
+
+            throw ex;
+        }
+
+    }
+
+    private async Task DecodeQRCode(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file != null)
+            {
+                using var ms = new MemoryStream();
+                await file.OpenReadStream().CopyToAsync(ms);
+                DecodedText = _QRCodeService.DecodeQRCode(ms.ToArray());
+
+
+                //Split the text into URL and activation code
+                // Split the text using "?=" as the delimiter
+                var parts = DecodedText.Split(new string[] { "?=" }, StringSplitOptions.None); // Split based on the "?=" delimiter
+
+
+                if (parts.Length == 2)
+                {
+                    // Return the two parts concatenated as a single string
+                    DecodedText= $"URL: {parts[0]} , Code Activation= {parts[1]}";
+                }
+                else
+                {
+                    throw new Exception("The QR code does not contain the expected format (URL|ActivationCode).");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+
+            throw ex;
+        }
+    }
+    // Decode QR Code when hovered over the image
+    private void DecodeQRCodeOnHover()
+    {
+        try
+        {
+            if (QRCodeBase64 != null)
+            {
+                // Convert the base64 string back to byte array
+                //var base64Data = QRCodeBase64.Split(',')[1];
+                byte[] imageBytes = Convert.FromBase64String(QRCodeBase64);
+                DecodedText = _QRCodeService.DecodeQRCode(imageBytes);
+            }
+
+        }
+        catch (Exception ex)
+        {
+
+            throw ex;
+        }
+    }
+}

@@ -1,0 +1,76 @@
+﻿@page "/decode-qrcode"
+@using SkiaSharp
+
+<h3>QR Code Decoder</h3>
+
+<InputFile OnChange="HandleFileSelected" />
+@if (errorMessage != null)
+{
+    <div style="color:red;">
+        <p>@errorMessage</p>
+    </div>
+}
+@if (!string.IsNullOrEmpty(decodedText))
+{
+    <div>
+        <h4>Decoded Text:</h4>
+        <p>@decodedText</p>
+    </div>
+}
+
+@code {
+    private string? decodedText;
+    private string? errorMessage;
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            try
+            {
+                var buffer = new byte[file.Size];
+                await file.OpenReadStream(5 * 1024 * 1024).ReadAsync(buffer); // Limit file size to 5 MB
+
+                // Decode the QR code
+                decodedText = DecodeQrCode(buffer);
+                errorMessage = null;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = "Error decoding the QR code: " + ex.Message;
+                decodedText = null;
+            }
+        }
+    }
+
+    private string DecodeQrCode(byte[] imageBytes)
+    {
+        using var ms = new MemoryStream(imageBytes);
+        var barcodeReader = new ZXing.BarcodeReaderGeneric();
+
+        try
+        {
+            // Decode image into Bitmap
+            // using var bitmap = new System.Drawing.Bitmap(ms);
+            // var result = barcodeReader.Decode(bitmap);
+
+            using var bitmap = SKBitmap.Decode(ms); // Decode image using SkiaSharp
+            var barcodeReader1 = new ZXing.SkiaSharp.BarcodeReader();
+            var result = barcodeReader1.Decode(bitmap);
+
+            if (result != null)
+            {
+                return result.Text;
+            }
+            else
+            {
+                throw new Exception("No QR code detected in the image.");
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Decoding failed: " + ex.Message);
+        }
+    }
+}
